@@ -1,0 +1,427 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Gopher Market Loyalty System API",
+        "version": "1.0.0",
+        "description": "API for user registration, authentication and order management"
+    },
+    "paths": {
+        "/api/user/register": {
+            "post": {
+                "summary": "Register a new user",
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UserCredentials"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User successfully registered and authenticated",
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Session cookie"
+                            },
+                            "Authorization": {
+                                "type": "string",
+                                "description": "Authorization token"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format"
+                    },
+                    "409": {
+                        "description": "Login already taken"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/user/login": {
+            "post": {
+                "summary": "Authenticate user",
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UserCredentials"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User successfully authenticated",
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Session cookie"
+                            },
+                            "Authorization": {
+                                "type": "string",
+                                "description": "Authorization token"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format"
+                    },
+                    "401": {
+                        "description": "Invalid login/password pair"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/user/orders": {
+            "post": {
+                "summary": "Upload order number",
+                "tags": [
+                    "Orders"
+                ],
+                "consumes": [
+                    "text/plain"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "12345678903"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order number was already uploaded by this user"
+                    },
+                    "202": {
+                        "description": "New order number accepted for processing"
+                    },
+                    "400": {
+                        "description": "Invalid request format"
+                    },
+                    "401": {
+                        "description": "User not authenticated"
+                    },
+                    "409": {
+                        "description": "Order number was already uploaded by another user"
+                    },
+                    "422": {
+                        "description": "Invalid order number format"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get list of uploaded order numbers",
+                "tags": [
+                    "Orders"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Order"
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "No data available"
+                    },
+                    "401": {
+                        "description": "User not authenticated"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/user/balance": {
+            "get": {
+                "summary": "Get current user balance",
+                "tags": [
+                    "Balance"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/Balance"
+                        }
+                    },
+                    "401": {
+                        "description": "User not authenticated"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/user/balance/withdraw": {
+            "post": {
+                "summary": "Withdraw funds from balance",
+                "tags": [
+                    "Balance"
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/WithdrawalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Withdrawal successful"
+                    },
+                    "401": {
+                        "description": "User not authenticated"
+                    },
+                    "402": {
+                        "description": "Insufficient funds"
+                    },
+                    "422": {
+                        "description": "Invalid order number"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/user/withdrawals": {
+            "get": {
+                "summary": "Get withdrawal history",
+                "tags": [
+                    "Balance"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Withdrawal"
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "No withdrawals yet"
+                    },
+                    "401": {
+                        "description": "User not authenticated"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "UserCredentials": {
+            "type": "object",
+            "required": [
+                "login",
+                "password"
+            ],
+            "properties": {
+                "login": {
+                    "type": "string",
+                    "example": "user123"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securepassword"
+                }
+            }
+        },
+        "Order": {
+            "type": "object",
+            "properties": {
+                "number": {
+                    "type": "string",
+                    "example": "9278923470"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "NEW",
+                        "PROCESSING",
+                        "INVALID",
+                        "PROCESSED"
+                    ],
+                    "example": "PROCESSED"
+                },
+                "accrual": {
+                    "type": "number",
+                    "example": 500
+                },
+                "uploaded_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2020-12-10T15:15:45+03:00"
+                }
+            }
+        },
+        "Balance": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "type": "number",
+                    "example": 500.5
+                },
+                "withdrawn": {
+                    "type": "number",
+                    "example": 42
+                }
+            }
+        },
+        "WithdrawalRequest": {
+            "type": "object",
+            "required": [
+                "order",
+                "sum"
+            ],
+            "properties": {
+                "order": {
+                    "type": "string",
+                    "example": "2377225624"
+                },
+                "sum": {
+                    "type": "number",
+                    "example": 751
+                }
+            }
+        },
+        "Withdrawal": {
+            "type": "object",
+            "properties": {
+                "order": {
+                    "type": "string",
+                    "example": "2377225624"
+                },
+                "sum": {
+                    "type": "number",
+                    "example": 500
+                },
+                "processed_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2020-12-09T16:09:57+03:00"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "cookieAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "Cookie"
+        },
+        "bearerAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "Authorization"
+        }
+    }
+}
