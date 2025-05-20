@@ -10,7 +10,7 @@ import (
 )
 
 func (u *usecase) Login(ctx context.Context, login, password string) (string, error) {
-	usr, err := u.repo.GetUser(ctx, login)
+	usr, err := u.userRepository.GetUser(ctx, login)
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrNotFound):

@@ -9,7 +9,10 @@ import (
 	"github.com/DanilNaum/gophermarket/internal/api/restapi"
 	"github.com/DanilNaum/gophermarket/internal/api/restapi/operations"
 	"github.com/DanilNaum/gophermarket/internal/config"
+	"github.com/DanilNaum/gophermarket/internal/repository/order"
 	"github.com/DanilNaum/gophermarket/internal/repository/user"
+	"github.com/DanilNaum/gophermarket/internal/repository/withdrawal"
+	orderService "github.com/DanilNaum/gophermarket/internal/service/order"
 	"github.com/DanilNaum/gophermarket/internal/transport"
 	"github.com/DanilNaum/gophermarket/internal/usecase"
 	"github.com/DanilNaum/gophermarket/pkg/jwt"
@@ -63,6 +66,8 @@ func run(log *zap.SugaredLogger) error {
 	defer pgConn.Close()
 
 	userStorage := user.NewUserStorage(pgConn)
+	orderStorage := order.NewOrderStorage(pgConn)
+	withdrawalStorage := withdrawal.NewWithdrawalStorage(pgConn)
 
 	swaggerSpec, err := loads.Embedded(restapi.SwaggerJSON, restapi.FlatSwaggerJSON)
 	if err != nil {
@@ -74,7 +79,10 @@ func run(log *zap.SugaredLogger) error {
 
 	jwt := jwt.NewJWTManager(jwt.WithTokenExpiration(time.Minute), jwt.WithSecretKey([]byte("secret")))
 
-	usecase, err := usecase.NewUsecase(userStorage, jwt)
+	orderService := orderService.NewOrderService(orderStorage, 10, conf.ClientConfig().AccrualAddr())
+	go orderService.Start(ctx)
+
+	usecase, err := usecase.NewUsecase(userStorage, orderStorage, jwt, orderService, withdrawalStorage)
 	if err != nil {
 		return err
 	}
@@ -89,6 +97,9 @@ func run(log *zap.SugaredLogger) error {
 	defer server.Shutdown()
 
 	server.Port = _serverPort
+	if port, err := conf.ServerConfig().ServerPort(); err == nil {
+		server.Port = port
+	}
 
 	err = server.Serve()
 	if err != nil {

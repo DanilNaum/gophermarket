@@ -1,0 +1,8 @@
+-- Active: 1723551594755@@127.0.0.1@5432@db
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT UNIQUE PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    status TEXT NOT NULL,
+    accrual INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

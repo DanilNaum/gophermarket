@@ -1,6 +1,8 @@
 package db
 
 import (
+	"flag"
+
 	"github.com/caarlos0/env/v6"
 )
 
@@ -10,7 +12,15 @@ type logger interface {
 }
 
 type dbConfig struct {
-	DBDSN *string `env:"DATABASE_DSN"`
+	DBDSN *string `env:"DATABASE_URI"`
+}
+
+func DBConfigFromFlags() *dbConfig {
+	dsn := flag.String("d", "", "dsn")
+
+	return &dbConfig{
+		DBDSN: dsn,
+	}
 }
 
 func DBConfigFromEnv(log logger) *dbConfig {
@@ -20,6 +30,24 @@ func DBConfigFromEnv(log logger) *dbConfig {
 		log.Fatalf("error parse config from Env: %s", err)
 	}
 	return c
+}
+
+func MergeDBConfigs(envConfig, flagsConfig *dbConfig, log logger) *dbConfig {
+	if envConfig == nil {
+		log.Fatalf("error env config is nil")
+		return nil
+	}
+
+	if flagsConfig == nil {
+		log.Fatalf("error flags config is nil")
+		return nil
+	}
+
+	if envConfig.DBDSN == nil {
+		envConfig.DBDSN = flagsConfig.DBDSN
+	}
+
+	return envConfig
 }
 
 func (c *dbConfig) GetDSN() string {

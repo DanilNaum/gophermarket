@@ -11,7 +11,7 @@ import (
 func (u *usecase) Register(ctx context.Context, login, password string) (string, error) {
 	// todo: hash password
 
-	id, err := u.repo.CreateUser(ctx, &user.User{Login: login, PasswordHash: password, Salt: "empty_salt"})
+	id, err := u.userRepository.CreateUser(ctx, &user.User{Login: login, PasswordHash: password, Salt: "empty_salt"})
 	if err != nil {
 		if errors.Is(err, user.ErrConflict) {
 			return "", user.ErrConflict

@@ -1,0 +1,7 @@
+-- Active: 1723551594755@@127.0.0.1@5432@db
+CREATE TABLE IF NOT EXISTS withdrawal (
+    user_id UUID REFERENCES users(id),
+    order_id TEXT UNIQUE,
+    accrual INTEGER,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
