@@ -3,15 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/DanilNaum/gophermarket/pkg/crypto"
 	"os"
 	"time"
 
 	"github.com/DanilNaum/gophermarket/internal/api/restapi"
 	"github.com/DanilNaum/gophermarket/internal/api/restapi/operations"
 	"github.com/DanilNaum/gophermarket/internal/config"
-	"github.com/DanilNaum/gophermarket/internal/repository/order"
-	"github.com/DanilNaum/gophermarket/internal/repository/user"
-	"github.com/DanilNaum/gophermarket/internal/repository/withdrawal"
+	"github.com/DanilNaum/gophermarket/internal/repository"
 	orderService "github.com/DanilNaum/gophermarket/internal/service/order"
 	"github.com/DanilNaum/gophermarket/internal/transport"
 	"github.com/DanilNaum/gophermarket/internal/usecase"
@@ -65,9 +64,7 @@ func run(log *zap.SugaredLogger) error {
 	}
 	defer pgConn.Close()
 
-	userStorage := user.NewUserStorage(pgConn)
-	orderStorage := order.NewOrderStorage(pgConn)
-	withdrawalStorage := withdrawal.NewWithdrawalStorage(pgConn)
+	storage := repository.NewStorage(pgConn)
 
 	swaggerSpec, err := loads.Embedded(restapi.SwaggerJSON, restapi.FlatSwaggerJSON)
 	if err != nil {
@@ -79,15 +76,17 @@ func run(log *zap.SugaredLogger) error {
 
 	jwt := jwt.NewJWTManager(jwt.WithTokenExpiration(time.Minute), jwt.WithSecretKey([]byte("secret")))
 
-	orderService := orderService.NewOrderService(orderStorage, 10, conf.ClientConfig().AccrualAddr())
+	orderService := orderService.NewOrderService(storage, 10, conf.ClientConfig().AccrualAddr())
 	go orderService.Start(ctx)
 
-	usecase, err := usecase.NewUsecase(userStorage, orderStorage, jwt, orderService, withdrawalStorage)
+	crypto := crypto.NewCrypto(conf.DBConfig().GetCryptoKey())
+
+	usecase, err := usecase.NewUsecase(storage, storage, jwt, orderService, storage, crypto)
 	if err != nil {
 		return err
 	}
 
-	configurator, err := transport.NewConfigurator(usecase)
+	configurator, err := transport.NewConfigurator(usecase, log)
 	if err != nil {
 		return err
 	}

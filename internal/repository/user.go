@@ -1,4 +1,4 @@
-package user
+package repository
 
 import (
 	"context"
@@ -8,20 +8,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
-
-type connection interface {
-	Master() *pgxpool.Pool
-	Close()
-}
-type storage struct {
-	conn connection
-}
-
-func NewUserStorage(conn connection) *storage {
-	return &storage{conn: conn}
-}
 
 func (s *storage) CreateUser(ctx context.Context, user *User) (uuid.UUID, error) {
 	query := `INSERT INTO users (login, password_hash, password_salt) VALUES ($1, $2, $3) RETURNING id `

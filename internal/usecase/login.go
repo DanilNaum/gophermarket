@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DanilNaum/gophermarket/internal/repository/user"
+	"github.com/DanilNaum/gophermarket/internal/repository"
 	"github.com/DanilNaum/gophermarket/pkg/jwt"
 )
 
@@ -13,14 +13,18 @@ func (u *usecase) Login(ctx context.Context, login, password string) (string, er
 	usr, err := u.userRepository.GetUser(ctx, login)
 	if err != nil {
 		switch {
-		case errors.Is(err, user.ErrNotFound):
+		case errors.Is(err, repository.ErrNotFound):
 			return "", ErrNotFound
 		}
 		return "", fmt.Errorf("%w: %w", ErrUnexpected, err)
 
 	}
 
-	//todo: hash password with salt and compare with db
+	password, err = u.crypto.Encode(password)
+	if err != nil {
+		return "", ErrUnexpected
+	}
+
 	if usr.PasswordHash != password {
 		return "", ErrInvalidPassword
 	}

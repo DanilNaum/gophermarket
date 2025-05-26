@@ -10,10 +10,12 @@ import (
 	"github.com/DanilNaum/gophermarket/internal/api/restapi/operations/orders"
 	"github.com/DanilNaum/gophermarket/internal/api/restapi/operations/user"
 	uc "github.com/DanilNaum/gophermarket/internal/usecase"
-	"github.com/DanilNaum/gophermarket/pkg/luna"
+	ucmodel "github.com/DanilNaum/gophermarket/internal/usecase/model"
+	"github.com/DanilNaum/gophermarket/pkg/luhn"
 	openapierrors "github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type usecase interface {
@@ -22,23 +24,24 @@ type usecase interface {
 	Login(ctx context.Context, login, password string) (string, error)
 
 	AddOrder(ctx context.Context, userID uuid.UUID, orderID string) error
-	GetOrders(ctx context.Context, userID uuid.UUID) ([]*uc.Order, error)
+	GetOrders(ctx context.Context, userID uuid.UUID) ([]*ucmodel.Order, error)
 
 	Balance(ctx context.Context, userID uuid.UUID) (current int, withdrawn int, err error)
 	Withdraw(ctx context.Context, userID uuid.UUID, orderID string, accrual int) error
-	WithdrawHistory(ctx context.Context, userID uuid.UUID) ([]*uc.Withdraw, error)
+	GetUserWithdrawals(ctx context.Context, userID uuid.UUID) ([]*ucmodel.Withdrawal, error)
 }
 
 type configurator struct {
 	usecase usecase
+	log     *zap.SugaredLogger
 }
 
-func NewConfigurator(usecase usecase) (*configurator, error) {
+func NewConfigurator(usecase usecase, log *zap.SugaredLogger) (*configurator, error) {
 	if usecase == nil {
 		return nil, errors.New("usecase is nil")
 	}
 
-	return &configurator{usecase: usecase}, nil
+	return &configurator{usecase: usecase, log: log}, nil
 }
 
 func (c *configurator) Configure(api *operations.GopherMarketLoyaltySystemAPIAPI) error {
@@ -61,8 +64,8 @@ func (c *configurator) Configure(api *operations.GopherMarketLoyaltySystemAPIAPI
 func (c *configurator) auth(token string) (interface{}, error) {
 	uuid, err := c.usecase.ParseToken(token)
 	if err != nil {
-		// todo: подумать насколько нужно отдавать текст ошибки
-		return nil, openapierrors.Unauthenticated(err.Error())
+		c.log.Debug(err.Error())
+		return nil, openapierrors.Unauthenticated("")
 
 	}
 	return uuid, nil
@@ -103,7 +106,7 @@ func (c *configurator) ordersPostAPIUserOrdersHandler(params orders.PostAPIUserO
 
 	orderID := params.Body
 
-	if !luna.LuhnCheck(orderID) {
+	if !luhn.LuhnCheck(orderID) {
 		return orders.NewPostAPIUserOrdersUnprocessableEntity()
 	}
 
@@ -145,7 +148,7 @@ func (c *configurator) withdrawHistory(param balance.GetAPIUserWithdrawalsParams
 	if err != nil {
 		return balance.NewGetAPIUserWithdrawalsInternalServerError()
 	}
-	ws, err := c.usecase.WithdrawHistory(param.HTTPRequest.Context(), userID)
+	ws, err := c.usecase.GetUserWithdrawals(param.HTTPRequest.Context(), userID)
 	if err != nil {
 		return balance.NewGetAPIUserWithdrawalsInternalServerError()
 	}
@@ -181,7 +184,7 @@ func (c *configurator) withdraw(param balance.PostAPIUserBalanceWithdrawParams, 
 
 	orderID := *param.Body.Order
 
-	if !luna.LuhnCheck(orderID) {
+	if !luhn.LuhnCheck(orderID) {
 		return balance.NewPostAPIUserBalanceWithdrawUnprocessableEntity()
 	}
 

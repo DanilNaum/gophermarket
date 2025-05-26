@@ -10,16 +10,15 @@ import (
 	"strconv"
 	"time"
 
-	// "time"
-
-	"github.com/DanilNaum/gophermarket/internal/repository/order"
+	"github.com/DanilNaum/gophermarket/internal/repository"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 type orderRepository interface {
-	CreateOrder(ctx context.Context, order *order.Order) error
-	UpdateOrder(ctx context.Context, order *order.Order) error
-	GetOrdersByUserId(ctx context.Context, userID uuid.UUID) ([]*order.Order, error)
+	CreateOrder(ctx context.Context, order *repository.Order) error
+	UpdateOrder(ctx context.Context, order *repository.Order) error
+	GetOrdersByUserId(ctx context.Context, userID uuid.UUID) ([]*repository.Order, error)
 }
 
 type orderService struct {
@@ -28,6 +27,8 @@ type orderService struct {
 	orderRepository orderRepository
 
 	url string
+
+	workerNum int
 }
 
 type Order struct {
@@ -36,11 +37,14 @@ type Order struct {
 	Accrual *int   `json:"accrual,omitempty"`
 }
 
+const workerNum = 10
+
 func NewOrderService(orderRepository orderRepository, bufferSize int, url string) *orderService {
 	return &orderService{
 		orderRepository: orderRepository,
 		orders:          make(chan string, bufferSize),
 		url:             url,
+		workerNum:       workerNum,
 	}
 }
 
@@ -48,30 +52,46 @@ func (o *orderService) NewOrder(orderID string) {
 	o.orders <- orderID
 }
 
-func (o *orderService) Start(appCtx context.Context) {
+func (o *orderService) Start(ctx context.Context) {
+	group, ctx := errgroup.WithContext(ctx)
+	for _ = range o.workerNum {
+		group.Go(func() error {
+			return o.startWorker(ctx)
+		})
+	}
+	_ = group.Wait()
+	// todo log err
+	return
+}
+func (o *orderService) startWorker(ctx context.Context) error {
 	for {
 		select {
 		case orderID, ok := <-o.orders:
 			if !ok {
-				return
+				return errors.New("chan close")
 			}
-			err := o.processOrder(appCtx, orderID)
+			err := o.processOrder(ctx, orderID)
 			if err != nil {
 				o.orders <- orderID
 			}
-		case <-appCtx.Done():
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
 
 var errToManyRequests = errors.New("too many requests")
 
-const defaultTimeout = 60
+const (
+	defaultTimeout = 60
 
-func (o *orderService) processOrder(appCtx context.Context, orderID string) error {
-	// ctx, cancel := context.WithTimeout(appCtx, 10*time.Second)
-	// defer cancel()
+	statusPROCESSED  = "PROCESSED"
+	statusINVALID    = "INVALID"
+	statusPROCESSING = "PROCESSING"
+	statusREGISTERED = "REGISTERED"
+)
+
+func (o *orderService) processOrder(ctx context.Context, orderID string) error {
 
 	resp, err := http.Get(fmt.Sprintf("%s/api/orders/%s", o.url, orderID))
 	if err != nil {
@@ -102,8 +122,8 @@ func (o *orderService) processOrder(appCtx context.Context, orderID string) erro
 
 		switch ord.Status {
 
-		case "PROCESSED":
-			err := o.orderRepository.UpdateOrder(appCtx, &order.Order{
+		case statusPROCESSED:
+			err := o.orderRepository.UpdateOrder(ctx, &repository.Order{
 				ID:      ord.Order,
 				Status:  ord.Status,
 				Accrual: ord.Accrual,
@@ -111,12 +131,9 @@ func (o *orderService) processOrder(appCtx context.Context, orderID string) erro
 			if err != nil {
 				// TODO log
 			}
-			if ord.Accrual != nil {
 
-			}
-
-		case "INVALID":
-			err := o.orderRepository.UpdateOrder(appCtx, &order.Order{
+		case statusINVALID:
+			err := o.orderRepository.UpdateOrder(ctx, &repository.Order{
 				ID:     ord.Order,
 				Status: ord.Status,
 			})
@@ -124,8 +141,8 @@ func (o *orderService) processOrder(appCtx context.Context, orderID string) erro
 				// TODO log
 			}
 
-		case "PROCESSING":
-			err := o.orderRepository.UpdateOrder(appCtx, &order.Order{
+		case statusPROCESSING:
+			err := o.orderRepository.UpdateOrder(ctx, &repository.Order{
 				ID:      ord.Order,
 				Status:  ord.Status,
 				Accrual: ord.Accrual,
@@ -135,15 +152,19 @@ func (o *orderService) processOrder(appCtx context.Context, orderID string) erro
 			}
 			return errors.New("not processed yet")
 
-		case "REGISTERED":
+		case statusREGISTERED:
 			return errors.New("not processed yet")
 		}
 
 	case http.StatusTooManyRequests:
 		timeout, err := strconv.Atoi(resp.Header.Get("Retry-After"))
 		if err != nil {
-			<-time.After(time.Duration(defaultTimeout) * time.Second)
-			return errToManyRequests
+			select {
+			case <-time.After(time.Duration(defaultTimeout) * time.Second):
+				return errToManyRequests
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
 		<-time.After(time.Duration(timeout) * time.Second)
 		return errToManyRequests

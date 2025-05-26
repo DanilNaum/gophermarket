@@ -8,12 +8,8 @@ import (
 	"net/url"
 
 	"github.com/caarlos0/env/v6"
+	"go.uber.org/zap"
 )
-
-//go:generate moq -out logger_moq_test.go . logger
-type logger interface {
-	Fatalf(format string, v ...any)
-}
 
 type serverConfig struct {
 	Host *string `env:"RUN_ADDRESS"`
@@ -27,7 +23,7 @@ func ServerConfigFromFlags() *serverConfig {
 	}
 }
 
-func ServerConfigFromEnv(log logger) *serverConfig {
+func ServerConfigFromEnv(log *zap.SugaredLogger) *serverConfig {
 	c := &serverConfig{}
 	err := env.Parse(c)
 	if err != nil {
@@ -36,7 +32,7 @@ func ServerConfigFromEnv(log logger) *serverConfig {
 	return c
 }
 
-func MergeServerConfigs(envConfig, flagsConfig *serverConfig, log logger) *serverConfig {
+func MergeServerConfigs(envConfig, flagsConfig *serverConfig, log *zap.SugaredLogger) *serverConfig {
 	if envConfig == nil {
 		log.Fatalf("error env config is nil")
 		return nil
@@ -54,7 +50,7 @@ func MergeServerConfigs(envConfig, flagsConfig *serverConfig, log logger) *serve
 	return envConfig
 }
 
-func (c *serverConfig) ValidateServerConfig(log logger) {
+func (c *serverConfig) ValidateServerConfig(log *zap.SugaredLogger) {
 
 	_, err := url.Parse(*c.Host)
 	if err != nil {

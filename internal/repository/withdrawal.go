@@ -1,4 +1,4 @@
-package withdrawal
+package repository
 
 import (
 	"context"
@@ -8,24 +8,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
-
-type connection interface {
-	Master() *pgxpool.Pool
-	Close()
-}
-type storage struct {
-	conn connection
-}
 
 func NewWithdrawalStorage(conn connection) *storage {
 	return &storage{conn: conn}
 }
 
 func (s *storage) AddWithdrawal(ctx context.Context, w *Withdrawal) error {
-	query := "INSERT INTO withdrawal (order_id, user_id, accrual) VALUES ($1, $2, $3)"
-	_, err := s.conn.Master().Exec(ctx, query, w.ID, w.UserID, w.Accrual)
+	query := `WITH balances AS (
+   	 		SELECT
+        		(SELECT COALESCE(SUM(accrual), 0) FROM orders WHERE user_id = $1) AS total_orders,
+        		(SELECT COALESCE(SUM(accrual), 0) FROM withdrawal WHERE user_id = $1) AS total_withdrawals
+			)
+			INSERT INTO withdrawal (id, user_id, accrual)
+			SELECT $2, $1, $3
+			FROM balances
+			WHERE (total_orders - total_withdrawals) >= $3`
+	cTag, err := s.conn.Master().Exec(ctx, query, w.UserID, w.ID, w.Accrual)
 	if err != nil {
 		var pgErr *pgconn.PgError
 
@@ -35,6 +34,9 @@ func (s *storage) AddWithdrawal(ctx context.Context, w *Withdrawal) error {
 			}
 		}
 		return err
+	}
+	if cTag.RowsAffected() == 0 {
+		return ErrNotEnough
 	}
 	return nil
 }
@@ -62,12 +64,17 @@ func (s *storage) GetUserWithdrawals(ctx context.Context, userID uuid.UUID) ([]*
 	return ws, nil
 }
 
-func (s *storage) GetUserWithdrawalsSum(ctx context.Context, userID uuid.UUID) (int, error) {
-	var su int
-	query := `SELECT COALESCE(SUM(accrual), 0) FROM withdrawal WHERE user_id = $1`
-	err := s.conn.Master().QueryRow(ctx, query, userID).Scan(&su)
+func (s *storage) GetBalance(ctx context.Context, userID uuid.UUID) (int, int, error) {
+	var (
+		total_withdrawals int
+		total_orders      int
+	)
+	query := `SELECT
+        		(SELECT COALESCE(SUM(accrual), 0) FROM orders WHERE user_id = $1) AS total_orders,
+        		(SELECT COALESCE(SUM(accrual), 0) FROM withdrawal WHERE user_id = $1) AS total_withdrawals`
+	err := s.conn.Master().QueryRow(ctx, query, userID).Scan(&total_orders, &total_withdrawals)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return su, nil
+	return total_orders, total_withdrawals, nil
 }

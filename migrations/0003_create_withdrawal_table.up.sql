@@ -3,5 +3,5 @@ CREATE TABLE IF NOT EXISTS withdrawal (
     user_id UUID REFERENCES users(id),
     order_id TEXT UNIQUE,
     accrual INTEGER,
-    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP WITH TIME ZONE
 );

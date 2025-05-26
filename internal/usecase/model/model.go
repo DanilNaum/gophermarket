@@ -1,10 +1,13 @@
-package usecase
+package model
 
 import (
 	"time"
 
-	"github.com/DanilNaum/gophermarket/internal/repository/order"
-	"github.com/DanilNaum/gophermarket/internal/repository/withdrawal"
+	"github.com/DanilNaum/gophermarket/internal/repository"
+)
+
+const (
+	StatusNEW = "NEW"
 )
 
 type Order struct {
@@ -14,7 +17,7 @@ type Order struct {
 	UploadedAt time.Time
 }
 
-func orderFromModel(order *order.Order) *Order {
+func orderFromModel(order *repository.Order) *Order {
 	return &Order{
 		ID:         order.ID,
 		Status:     order.Status,
@@ -23,7 +26,7 @@ func orderFromModel(order *order.Order) *Order {
 	}
 }
 
-func ordersFromModel(orders []*order.Order) []*Order {
+func OrdersFromModel(orders []*repository.Order) []*Order {
 	ordersModel := make([]*Order, 0, len(orders))
 	for _, order := range orders {
 		ordersModel = append(ordersModel, orderFromModel(order))
@@ -31,21 +34,21 @@ func ordersFromModel(orders []*order.Order) []*Order {
 	return ordersModel
 }
 
-type Withdraw struct {
+type Withdrawal struct {
 	Order       string
 	Sum         *int
 	ProcessedAt time.Time
 }
 
-func withdrawalFromModel(w *withdrawal.Withdrawal) *Withdraw {
-	return &Withdraw{
+func withdrawalFromModel(w *repository.Withdrawal) *Withdrawal {
+	return &Withdrawal{
 		Order:       w.ID,
 		Sum:         w.Accrual,
 		ProcessedAt: w.CreatedAt,
 	}
 }
-func withdrawalsFromModel(ws []*withdrawal.Withdrawal) []*Withdraw {
-	wsModel := make([]*Withdraw, 0, len(ws))
+func WithdrawalsFromModel(ws []*repository.Withdrawal) []*Withdrawal {
+	wsModel := make([]*Withdrawal, 0, len(ws))
 	for _, w := range ws {
 		wsModel = append(wsModel, withdrawalFromModel(w))
 	}

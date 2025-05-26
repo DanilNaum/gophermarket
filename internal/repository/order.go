@@ -1,4 +1,4 @@
-package order
+package repository
 
 import (
 	"context"
@@ -8,50 +8,39 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
-
-type connection interface {
-	Master() *pgxpool.Pool
-	Close()
-}
-type storage struct {
-	conn connection
-}
 
 func NewOrderStorage(conn connection) *storage {
 	return &storage{conn: conn}
 }
 
 func (s *storage) CreateOrder(ctx context.Context, order *Order) error {
-	query := `INSERT INTO orders (id, user_id, status, accrual) VALUES ($1, $2, $3, $4)`
-	_, err := s.conn.Master().Exec(ctx, query, order.ID, order.UserID, order.Status, order.Accrual)
+	var existingUserID uuid.UUID
+
+	query := `
+		INSERT INTO orders (id, user_id, status, accrual)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (id) DO UPDATE
+		SET status = EXCLUDED.status
+		RETURNING user_id
+	`
+
+	err := s.conn.Master().QueryRow(ctx, query,
+		order.ID, order.UserID, order.Status, order.Accrual,
+	).Scan(&existingUserID)
+
 	if err != nil {
 		var pgErr *pgconn.PgError
-
-		if errors.As(err, &pgErr) {
-			if pgErr.Code == pgerrcode.ForeignKeyViolation {
-				return ErrInvalidUser
-			}
-			if pgErr.Code == pgerrcode.UniqueViolation {
-				userID := uuid.UUID{}
-				query := `SELECT user_id FROM orders WHERE id = $1`
-
-				err = s.conn.Master().QueryRow(ctx, query, order.ID).Scan(&userID)
-				if err != nil {
-					return err
-				}
-
-				if userID != order.UserID {
-					return ErrConflict
-				}
-
-				return ErrExists
-			}
-
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation {
+			return ErrInvalidUser
 		}
 		return err
 	}
+
+	if existingUserID != order.UserID {
+		return ErrConflict
+	}
+
 	return nil
 }
 

@@ -4,15 +4,12 @@ import (
 	"flag"
 
 	"github.com/caarlos0/env/v6"
+	"go.uber.org/zap"
 )
 
-//go:generate moq -out logger_moq_test.go . logger
-type logger interface {
-	Fatalf(format string, v ...any)
-}
-
 type dbConfig struct {
-	DBDSN *string `env:"DATABASE_URI"`
+	DBDSN     *string `env:"DATABASE_URI"`
+	CryptoKey *string `env:"CRYPTO_KEY" envDefault:"123456"`
 }
 
 func DBConfigFromFlags() *dbConfig {
@@ -23,7 +20,7 @@ func DBConfigFromFlags() *dbConfig {
 	}
 }
 
-func DBConfigFromEnv(log logger) *dbConfig {
+func DBConfigFromEnv(log *zap.SugaredLogger) *dbConfig {
 	c := &dbConfig{}
 	err := env.Parse(c)
 	if err != nil {
@@ -32,7 +29,7 @@ func DBConfigFromEnv(log logger) *dbConfig {
 	return c
 }
 
-func MergeDBConfigs(envConfig, flagsConfig *dbConfig, log logger) *dbConfig {
+func MergeDBConfigs(envConfig, flagsConfig *dbConfig, log *zap.SugaredLogger) *dbConfig {
 	if envConfig == nil {
 		log.Fatalf("error env config is nil")
 		return nil
@@ -52,4 +49,8 @@ func MergeDBConfigs(envConfig, flagsConfig *dbConfig, log logger) *dbConfig {
 
 func (c *dbConfig) GetDSN() string {
 	return *c.DBDSN
+}
+
+func (c *dbConfig) GetCryptoKey() string {
+	return *c.CryptoKey
 }

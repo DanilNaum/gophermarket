@@ -5,12 +5,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go.uber.org/zap"
 )
-
-type logger interface {
-	Info(args ...interface{})
-	Errorf(template string, args ...interface{})
-}
 
 type connection struct {
 	masterPool *pgxpool.Pool
@@ -25,7 +21,7 @@ func (c *connection) Close() {
 
 }
 
-func NewConnection(ctx context.Context, cnf *connConfig, log logger) *connection {
+func NewConnection(ctx context.Context, cnf *connConfig, log *zap.SugaredLogger) *connection {
 	masterDsn := cnf.getDsn()
 
 	masterPool := createPool(ctx, masterDsn, "master", log)
@@ -38,7 +34,7 @@ func NewConnection(ctx context.Context, cnf *connConfig, log logger) *connection
 	}
 }
 
-func createPool(ctx context.Context, dsn, tp string, log logger) *pgxpool.Pool {
+func createPool(ctx context.Context, dsn, tp string, log *zap.SugaredLogger) *pgxpool.Pool {
 	pg, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		log.Errorf("сould not establish db %s connection %s", tp, err.Error())

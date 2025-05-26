@@ -4,12 +4,8 @@ import (
 	"flag"
 
 	"github.com/caarlos0/env/v6"
+	"go.uber.org/zap"
 )
-
-//go:generate moq -out logger_moq_test.go . logger
-type logger interface {
-	Fatalf(format string, v ...any)
-}
 
 type clientConfig struct {
 	Host *string `env:"ACCRUAL_SYSTEM_ADDRESS"`
@@ -23,7 +19,7 @@ func ClientConfigFromFlags() *clientConfig {
 	}
 }
 
-func ClientConfigFromEnv(log logger) *clientConfig {
+func ClientConfigFromEnv(log *zap.SugaredLogger) *clientConfig {
 	c := &clientConfig{}
 	err := env.Parse(c)
 	if err != nil {
@@ -32,7 +28,7 @@ func ClientConfigFromEnv(log logger) *clientConfig {
 	return c
 }
 
-func MergeClientConfigs(envConfig, flagsConfig *clientConfig, log logger) *clientConfig {
+func MergeClientConfigs(envConfig, flagsConfig *clientConfig, log *zap.SugaredLogger) *clientConfig {
 	if envConfig == nil {
 		log.Fatalf("error env config is nil")
 		return nil

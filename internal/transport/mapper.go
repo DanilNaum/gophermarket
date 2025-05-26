@@ -2,7 +2,7 @@ package transport
 
 import (
 	"github.com/DanilNaum/gophermarket/internal/api/models"
-	uc "github.com/DanilNaum/gophermarket/internal/usecase"
+	uc "github.com/DanilNaum/gophermarket/internal/usecase/model"
 	"github.com/go-openapi/strfmt"
 )
 
@@ -26,7 +26,7 @@ func ordersFromUCModel(orders []*uc.Order) []*models.Order {
 	return ordersModel
 }
 
-func withdrawalFromUCModel(withdraw *uc.Withdraw) *models.Withdrawal {
+func withdrawalFromUCModel(withdraw *uc.Withdrawal) *models.Withdrawal {
 	w := &models.Withdrawal{
 		Order:       withdraw.Order,
 		ProcessedAt: strfmt.DateTime(withdraw.ProcessedAt),
@@ -36,7 +36,7 @@ func withdrawalFromUCModel(withdraw *uc.Withdraw) *models.Withdrawal {
 	}
 	return w
 }
-func withdrawsFromUCModel(withdraws []*uc.Withdraw) []*models.Withdrawal {
+func withdrawsFromUCModel(withdraws []*uc.Withdrawal) []*models.Withdrawal {
 	ws := make([]*models.Withdrawal, 0, len(withdraws))
 	for _, w := range withdraws {
 		ws = append(ws, withdrawalFromUCModel(w))

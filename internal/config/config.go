@@ -6,14 +6,12 @@ import (
 	"github.com/DanilNaum/gophermarket/internal/config/client"
 	"github.com/DanilNaum/gophermarket/internal/config/db"
 	"github.com/DanilNaum/gophermarket/internal/config/server"
+	"go.uber.org/zap"
 )
-
-type logger interface {
-	Fatalf(format string, v ...any)
-}
 
 type dbConfig interface {
 	GetDSN() string
+	GetCryptoKey() string
 }
 
 type serverConf interface {
@@ -31,7 +29,7 @@ type config struct {
 	clientConfig clientConfig
 }
 
-func NewConfig(log logger) *config {
+func NewConfig(log *zap.SugaredLogger) *config {
 	dbConfigFlag := db.DBConfigFromFlags()
 	serverConfigFlags := server.ServerConfigFromFlags()
 	clientConfigFlags := client.ClientConfigFromFlags()
