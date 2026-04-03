@@ -1,0 +1,19 @@
+services:
+  postgres:
+      container_name: pg
+      image: postgres:14
+      environment:
+        POSTGRES_DB: db
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: pass
+      healthcheck:
+        test: su -c "pg_isready"
+        interval: 5s
+        timeout: 5s
+        retries: 20
+      ports:
+      - 5432:5432
+
+networks:
+  default:
+    name: gophermarketnetworks
